@@ -1,84 +1,36 @@
-# Motor Predictivo de Anomalías de Riesgo Multidimensional
+# Risk Anomaly Prediction Engine
 
-Clasificador no lineal de anomalías construido desde cero con **NumPy** y
-**SciPy**. No utiliza scikit-learn, pandas, TensorFlow, Keras ni PyTorch.
+I built this project to explore how a nonlinear model can identify unusual patterns in risk data without relying on a machine learning framework. The classifier is written in Python using NumPy for the math and SciPy for optimization. It includes the forward pass, analytical gradients, training, and decision-threshold calibration.
 
-## Contenido
+The model uses one hidden layer with a tanh activation and a sigmoid output. Training minimizes regularized binary cross-entropy through SciPy's L-BFGS-B optimizer. After training, the script calibrates the classification threshold against validation predictions instead of assuming that 0.5 is always the best cutoff. It also evaluates the cost of missing higher-risk cases.
 
-- `risk_anomaly_lbfgsb.py`: script único, orientado a objetos y ejecutable.
-- `requirements-risk-anomaly.txt`: dependencias permitidas.
+## Running the model
 
-## Requisitos
+You'll need Python 3.10 or newer.
 
-- Python 3.10 o superior.
-- NumPy.
-- SciPy.
-
-Instalación aislada recomendada en Windows:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements-risk-anomaly.txt
+```bash
+python -m pip install -r requirements-risk-anomaly.txt
+python risk_anomaly_lbfgsb.py
 ```
 
-## Ejecución
+The script generates its own synthetic dataset, trains the classifier, and prints the optimizer results, selected threshold, confusion matrix, precision, recall, and F1 score. You don't need to download a dataset.
 
-```powershell
-.venv\Scripts\python.exe risk_anomaly_lbfgsb.py
+The simulated data includes 6,000 examples with 10 input features. It combines several kinds of unusual activity, such as spikes in transaction amounts and frequency, inconsistent contextual signals, and nonlinear patterns that are harder to separate with a straight decision boundary.
+
+## How I checked it
+
+I compared the analytical gradients with finite differences to check the implementation. In a documented run using the default setup, the maximum gradient difference was approximately `2.67e-10`. Those results come from a local experiment with synthetic data, not a production benchmark.
+
+The repository also has automated regression tests for gradients, training behavior, numerical stability, data splitting, risk penalties, and threshold calibration.
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
-El programa crea un dataset sintético y muestra por consola:
+GitHub Actions runs the tests when changes are pushed or a pull request is opened.
 
-- estado, iteraciones y pérdida final de L-BFGS-B;
-- umbral de decisión calibrado con F1;
-- matriz de confusión;
-- precisión, recall y F1-score;
-- penalización asimétrica de falsos negativos de riesgo.
+## Project notes
 
-## Diseño matemático
+This is a numerical machine learning project, not a hosted API. The main implementation is in `risk_anomaly_lbfgsb.py`, and the dependencies are listed in `requirements-risk-anomaly.txt`. I developed the original model separately and later added the test suite and CI configuration.
 
-El modelo es una red de una capa oculta:
-
-```text
-X -> (W1, b1) -> tanh -> (W2, b2) -> sigmoid -> P(anomalía)
-```
-
-La función objetivo es entropía cruzada binaria regularizada con L2. El script
-calcula el gradiente analítico por regla de la cadena y lo entrega a
-`scipy.optimize.minimize` con método `L-BFGS-B`.
-
-Para la calibración, `scipy.optimize.minimize_scalar` explora el intervalo de
-umbrales `[0, 1]`. Como F1 es escalonada, el resultado se contrasta además con
-los cortes inducidos por las probabilidades de validación: así se conserva el
-uso de SciPy y se selecciona el mejor umbral que puede cambiar decisiones.
-
-## Datos sintéticos
-
-Se generan 6,000 transacciones con 10 características heterogéneas. Las
-distribuciones `lognorm`, `gamma`, `beta` y t de Student inyectan asimetría,
-colas pesadas y ruido no gaussiano. Las anomalías combinan tres regímenes:
-
-1. picos de importe, velocidad y exposición;
-2. inconsistencias de dispositivo, horario y geografía;
-3. una región anular no lineal que no es separable con una única frontera lineal.
-
-## Validación realizada
-
-Con la semilla por defecto se verificó que L-BFGS-B converge y que el gradiente
-analítico coincide con diferencias finitas, con error absoluto máximo aproximado
-de `2.67e-10` sobre una muestra de parámetros.
-
-## Restricciones de dependencias
-
-El script sólo importa NumPy, SciPy y módulos de la biblioteca estándar de
-Python (`dataclasses` y `typing`).
-
-## Automated regression tests
-
-Run `python -m unittest discover -s tests -v`. Twelve tests cover numerical stability, gradients, training, risk penalty, stratified splitting and threshold calibration. GitHub Actions reruns them on each push or pull request.
-
-## Scope and provenance
-
-This is a Python **machine-learning model**, not an HTTP API. It generates synthetic data and implements a nonlinear classifier using NumPy and SciPy. The performance metrics described are from recorded local runs, not guaranteed on unrelated datasets or production infrastructure.
-
-The released source is based on the owner's archived `risk_anomaly_lbfgsb_package.zip`, with original model code preserved and new tests/CI added separately. License terms apply to repository source only, not external datasets or third-party libraries.
+The source code is released under the MIT license. Third-party packages keep their own licenses.
